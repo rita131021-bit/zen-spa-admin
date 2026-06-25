@@ -1,0 +1,55 @@
+
+> zen-spa-admin@0.1.0 dev
+> next dev --webpack --hostname 127.0.0.1 --port 3000
+
+▲ Next.js 16.2.6 (webpack)
+- Local:         http://127.0.0.1:3000
+- Network:       http://127.0.0.1:3000
+- Environments: .env.local
+✓ Ready in 13.9s
+
+○ Compiling /calendario ...
+ GET /calendario 200 in 17.0s (next.js: 15.0s, application-code: 1986ms)
+ GET /calendario 200 in 346ms (next.js: 20ms, application-code: 326ms)
+○ Compiling /turnos ...
+ GET /calendario 200 in 331ms (next.js: 82ms, application-code: 249ms)
+ GET /turnos?fecha=2026-06-24&hora=08:00 200 in 5.0s (next.js: 3.8s, application-code: 1230ms)
+ GET /turnos?fecha=2026-06-24&hora=08:00 200 in 824ms (next.js: 16ms, application-code: 808ms)
+ GET /turnos?fecha=2026-06-24&hora=08:00 200 in 12.7s (next.js: 9ms, application-code: 12.7s)
+ GET /calendario 200 in 2.1s (next.js: 6ms, application-code: 2.1s)
+ GET /calendario 200 in 2.3s (next.js: 68ms, application-code: 2.2s)
+○ Compiling / ...
+ GET / 200 in 7.8s (next.js: 4.1s, application-code: 3.8s)
+ GET /turnos 200 in 605ms (next.js: 40ms, application-code: 564ms)
+ GET /calendario 200 in 793ms (next.js: 52ms, application-code: 742ms)
+ GET /calendario 200 in 317ms (next.js: 5ms, application-code: 311ms)
+ GET /horarios 200 in 2.9s (next.js: 2.5s, application-code: 384ms)
+ GET /mascotas 200 in 1546ms (next.js: 1162ms, application-code: 385ms)
+ GET /mascotas 200 in 636ms (next.js: 5ms, application-code: 632ms)
+ GET /servicios 200 in 1879ms (next.js: 1463ms, application-code: 416ms)
+ GET /clientes 200 in 1644ms (next.js: 1177ms, application-code: 467ms)
+ GET /resenas 200 in 1356ms (next.js: 1197ms, application-code: 159ms)
+ GET /reportes 200 in 1746ms (next.js: 1327ms, application-code: 419ms)
+ GET /finanzas 200 in 2.0s (next.js: 1892ms, application-code: 114ms)
+ GET /recordatorios 200 in 5.5s (next.js: 3.0s, application-code: 2.5s)
+ GET /gift-cards 200 in 3.2s (next.js: 2.8s, application-code: 356ms)
+ GET /gift-cards 200 in 313ms (next.js: 8ms, application-code: 305ms)
+ GET /descuentos 200 in 1779ms (next.js: 1623ms, application-code: 156ms)
+ GET /horarios 200 in 344ms (next.js: 15ms, application-code: 330ms)
+ GET /turnos 200 in 368ms (next.js: 23ms, application-code: 345ms)
+ GET /calendario 200 in 1939ms (next.js: 63ms, application-code: 1876ms)
+ GET /horarios 200 in 1751ms (next.js: 5ms, application-code: 1745ms)
+ GET /calendario 200 in 1070ms (next.js: 5ms, application-code: 1065ms)
+ GET /horarios 200 in 519ms (next.js: 5ms, application-code: 514ms)
+ GET /calendario 200 in 2.6s (next.js: 5ms, application-code: 2.6s)
+ GET /calendario 200 in 3.1s (next.js: 6ms, application-code: 3.1s)
+ GET /calendario 200 in 2.5s (next.js: 9ms, application-code: 2.5s)
+ GET /calendario 200 in 79s (next.js: 37.6s, application-code: 41s)
+○ Compiling / ...
+ GET / 200 in 8.2s (next.js: 4.8s, application-code: 3.4s)
+ GET / 200 in 2.4min (next.js: 2.3min, application-code: 8.1s)
+ GET /calendario 200 in 97s (next.js: 89s, application-code: 8.1s)
+ GET / 200 in 6.8s (next.js: 5ms, application-code: 6.8s)
+ GET /horarios 200 in 2.6s (next.js: 148ms, application-code: 2.5s)
+ GET /calendario 200 in 7.2s (next.js: 3.2s, application-code: 4.0s)
+ GET / 200 in 3.5s (next.js: 87ms, application-code: 3.4s)
