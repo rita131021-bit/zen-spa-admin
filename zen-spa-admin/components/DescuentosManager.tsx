@@ -27,6 +27,20 @@ type FidelidadCliente = {
   ultima_visita?: string | null
 }
 
+type ClienteFuente = {
+  id: number
+  nombre: string
+  whatsapp?: string | null
+  telefono?: string | null
+}
+
+type TurnoFuente = {
+  id: number
+  cliente_id?: number | null
+  estado?: string | null
+  fecha?: string | null
+}
+
 const emptyForm = {
   nombre: "",
   porcentaje: "",
@@ -49,12 +63,49 @@ export default function DescuentosManager() {
   const cargar = async () => {
     setLoading(true)
     try {
-      const [descuentosRes, fidelidadRes] = await Promise.all([
+      const [descuentosRes, clientesRes, turnosRes] = await Promise.all([
         fetch(`${API_BASE}/api/descuentos`),
-        fetch(`${API_BASE}/api/descuentos/fidelidad/clientes`),
+        fetch(`${API_BASE}/api/clientes`),
+        fetch(`${API_BASE}/api/turnos`),
       ])
-      if (descuentosRes.ok) setDescuentos(await descuentosRes.json())
-      if (fidelidadRes.ok) setFidelidad(await fidelidadRes.json())
+      const descuentosData = descuentosRes.ok ? ((await descuentosRes.json()) as Descuento[]) : []
+      const clientesData = clientesRes.ok ? ((await clientesRes.json()) as ClienteFuente[]) : []
+      const turnosData = turnosRes.ok ? ((await turnosRes.json()) as TurnoFuente[]) : []
+
+      setDescuentos(descuentosData)
+
+      const reglas = descuentosData
+        .filter((d) => d.activo && Number(d.turnos_requeridos) > 0)
+        .sort((a, b) => Number(a.turnos_requeridos) - Number(b.turnos_requeridos))
+
+      const fidelidadData = clientesData
+        .map((cliente) => {
+          const visitas = turnosData.filter((turno) =>
+            Number(turno.cliente_id) === Number(cliente.id) &&
+            String(turno.estado || "").toLowerCase() === "completado"
+          )
+          const visitasCompletadas = visitas.length
+          const descuentoActual = reglas
+            .filter((d) => Number(d.turnos_requeridos) <= visitasCompletadas)
+            .sort((a, b) => Number(b.porcentaje) - Number(a.porcentaje))[0] || null
+          const proximoDescuento = reglas.find((d) => Number(d.turnos_requeridos) > visitasCompletadas) || null
+
+          return {
+            id: cliente.id,
+            nombre: cliente.nombre,
+            whatsapp: cliente.whatsapp,
+            telefono: cliente.telefono,
+            visitas_completadas: visitasCompletadas,
+            checks: Array.from({ length: visitasCompletadas }, (_, index) => index + 1),
+            descuento_actual: descuentoActual,
+            proximo_descuento: proximoDescuento,
+            visitas_para_proximo: proximoDescuento ? Math.max(Number(proximoDescuento.turnos_requeridos) - visitasCompletadas, 0) : 0,
+            ultima_visita: visitas.map((turno) => turno.fecha).filter(Boolean).sort().slice(-1)[0] || null,
+          }
+        })
+        .sort((a, b) => b.visitas_completadas - a.visitas_completadas || a.nombre.localeCompare(b.nombre))
+
+      setFidelidad(fidelidadData)
     } catch {}
     setLoading(false)
   }
