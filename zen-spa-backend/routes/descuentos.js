@@ -21,6 +21,55 @@ module.exports = function createDescuentosRouter(db) {
     });
   });
 
+  // RESUMEN DE FIDELIDAD POR CLIENTE
+  router.get('/fidelidad/clientes', (req, res) => {
+    const clientesSql = `
+      SELECT
+        c.id,
+        c.nombre,
+        c.whatsapp,
+        c.telefono,
+        COALESCE(SUM(CASE WHEN LOWER(t.estado) = 'completado' THEN 1 ELSE 0 END), 0)::int as visitas_completadas,
+        MIN(CASE WHEN LOWER(t.estado) = 'completado' THEN t.fecha ELSE NULL END) as primera_visita,
+        MAX(CASE WHEN LOWER(t.estado) = 'completado' THEN t.fecha ELSE NULL END) as ultima_visita
+      FROM clientes c
+      LEFT JOIN turnos t ON t.cliente_id = c.id
+      GROUP BY c.id, c.nombre, c.whatsapp, c.telefono
+      ORDER BY visitas_completadas DESC, c.nombre ASC
+    `;
+
+    db.query(clientesSql, (err, clientes) => {
+      if (err) return res.status(500).json({ error: err.message });
+
+      const descuentosSql = 'SELECT * FROM descuentos_fidelidad WHERE activo = TRUE ORDER BY turnos_requeridos ASC, porcentaje ASC';
+      db.query(descuentosSql, (descErr, descuentos) => {
+        if (descErr) return res.status(500).json({ error: descErr.message });
+
+        const reglas = (descuentos || []).filter((d) => Number(d.turnos_requeridos) > 0);
+        const resumen = (clientes || []).map((cliente) => {
+          const visitas = Number(cliente.visitas_completadas || 0);
+          const descuentoActual = reglas
+            .filter((d) => Number(d.turnos_requeridos) <= visitas)
+            .sort((a, b) => Number(b.porcentaje) - Number(a.porcentaje))[0] || null;
+          const proximoDescuento = reglas
+            .filter((d) => Number(d.turnos_requeridos) > visitas)
+            .sort((a, b) => Number(a.turnos_requeridos) - Number(b.turnos_requeridos))[0] || null;
+
+          return {
+            ...cliente,
+            visitas_completadas: visitas,
+            checks: Array.from({ length: visitas }, (_, index) => index + 1),
+            descuento_actual: descuentoActual,
+            proximo_descuento: proximoDescuento,
+            visitas_para_proximo: proximoDescuento ? Math.max(Number(proximoDescuento.turnos_requeridos) - visitas, 0) : 0,
+          };
+        });
+
+        res.json(resumen);
+      });
+    });
+  });
+
   // CALCULAR DESCUENTO PARA CLIENTE
   router.post('/cliente/:cliente_id', (req, res) => {
     const cliente_id = req.params.cliente_id;
@@ -33,7 +82,7 @@ module.exports = function createDescuentosRouter(db) {
         (EXTRACT(YEAR FROM AGE(CURRENT_DATE, MIN(t.fecha))) * 12
           + EXTRACT(MONTH FROM AGE(CURRENT_DATE, MIN(t.fecha))))::int as meses_cliente
       FROM clientes c
-      LEFT JOIN turnos t ON c.id = t.cliente_id AND t.estado IN ('Confirmado', 'Completado')
+      LEFT JOIN turnos t ON c.id = t.cliente_id AND LOWER(t.estado) = 'completado'
       WHERE c.id = ?
       GROUP BY c.id, c.nombre
     `;
