@@ -14,6 +14,19 @@ type Descuento = {
   activo: boolean
 }
 
+type FidelidadCliente = {
+  id: number
+  nombre: string
+  whatsapp?: string | null
+  telefono?: string | null
+  visitas_completadas: number
+  checks: number[]
+  descuento_actual?: Descuento | null
+  proximo_descuento?: Descuento | null
+  visitas_para_proximo: number
+  ultima_visita?: string | null
+}
+
 const emptyForm = {
   nombre: "",
   porcentaje: "",
@@ -24,6 +37,7 @@ const emptyForm = {
 
 export default function DescuentosManager() {
   const [descuentos, setDescuentos] = useState<Descuento[]>([])
+  const [fidelidad, setFidelidad] = useState<FidelidadCliente[]>([])
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editando, setEditando] = useState<Descuento | null>(null)
@@ -35,8 +49,12 @@ export default function DescuentosManager() {
   const cargar = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/api/descuentos`)
-      if (res.ok) setDescuentos(await res.json())
+      const [descuentosRes, fidelidadRes] = await Promise.all([
+        fetch(`${API_BASE}/api/descuentos`),
+        fetch(`${API_BASE}/api/descuentos/fidelidad/clientes`),
+      ])
+      if (descuentosRes.ok) setDescuentos(await descuentosRes.json())
+      if (fidelidadRes.ok) setFidelidad(await fidelidadRes.json())
     } catch {}
     setLoading(false)
   }
@@ -100,6 +118,8 @@ export default function DescuentosManager() {
   }
 
   const activos = descuentos.filter((d) => d.activo).length
+  const clientesConVisitas = fidelidad.filter((cliente) => cliente.visitas_completadas > 0).length
+  const checksTotales = fidelidad.reduce((total, cliente) => total + cliente.visitas_completadas, 0)
 
   return (
     <>
@@ -125,7 +145,7 @@ export default function DescuentosManager() {
             ? `${Math.min(...descuentos.filter((d) => d.activo && d.turnos_requeridos > 0).map((d) => d.turnos_requeridos))} visitas`
             : "—"}
           detail="Para primer descuento" tone="blue" />
-        <MetricCard label="Inactivos" value={String(descuentos.length - activos)} detail="Desactivados" tone="yellow" />
+        <MetricCard label="Clientes fieles" value={String(clientesConVisitas)} detail={`${checksTotales} checks`} tone="yellow" />
       </section>
 
       {/* CÓMO FUNCIONA */}
@@ -137,6 +157,65 @@ export default function DescuentosManager() {
           se aplica el descuento de <strong style={{ color: "#e9d5ff" }}>10% (Cliente Frecuente)</strong> aunque 
           no el de 20% (que requiere 20 visitas). El descuento se muestra en el formulario de nuevo turno.
         </p>
+      </section>
+
+      {/* FIDELIDAD POR CLIENTE */}
+      <section className="panel-card table-card">
+        <h3 style={{ marginBottom: "6px" }}>Checks de fidelidad por cliente</h3>
+        <p style={{ color: "var(--muted)", fontSize: "13px", marginTop: 0 }}>
+          Cada check corresponde a un turno marcado como Completado. Las reservas pendientes no suman beneficios.
+        </p>
+        {loading ? <p>Cargando...</p> : fidelidad.length === 0 ? (
+          <p style={{ color: "var(--muted)" }}>Todavía no hay clientes con historial.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>WhatsApp</th>
+                <th>Checks</th>
+                <th>Descuento actual</th>
+                <th>Próximo beneficio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {fidelidad.map((cliente) => (
+                <tr key={cliente.id}>
+                  <td style={{ fontWeight: "600" }}>{cliente.nombre}</td>
+                  <td style={{ fontSize: "13px", color: "var(--muted)" }}>{cliente.whatsapp || cliente.telefono || "—"}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 700 }}>{cliente.visitas_completadas}</span>
+                      <span aria-label={`${cliente.visitas_completadas} visitas completadas`} style={{ display: "inline-flex", gap: "3px", flexWrap: "wrap" }}>
+                        {cliente.checks.length > 0
+                          ? cliente.checks.map((check) => <span key={check} style={{ color: "#22c55e", fontSize: "15px" }}>✓</span>)
+                          : <span style={{ color: "var(--muted)", fontSize: "12px" }}>Sin visitas completadas</span>}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    {cliente.descuento_actual ? (
+                      <span className="pill green">{cliente.descuento_actual.porcentaje}% · {cliente.descuento_actual.nombre}</span>
+                    ) : (
+                      <span className="pill gray">Sin descuento</span>
+                    )}
+                  </td>
+                  <td style={{ fontSize: "13px" }}>
+                    {cliente.proximo_descuento ? (
+                      <span style={{ color: "#facc15" }}>
+                        {cliente.visitas_para_proximo} checks para {cliente.proximo_descuento.porcentaje}%
+                      </span>
+                    ) : cliente.visitas_completadas > 0 ? (
+                      <span style={{ color: "#86efac" }}>Máximo beneficio alcanzado</span>
+                    ) : (
+                      <span style={{ color: "var(--muted)" }}>Completar una visita para empezar</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       {/* FORMULARIO */}
