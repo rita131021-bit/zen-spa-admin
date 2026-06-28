@@ -38,3 +38,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Deployment
 
 Vercel production uses the `zen-spa-admin` root directory with the Next.js preset.
+Build command: `npm run build`.
