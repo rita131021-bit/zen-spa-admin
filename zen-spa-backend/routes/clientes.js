@@ -26,13 +26,49 @@ module.exports = (db) => {
     });
   });
 
-  // CREAR NUEVO CLIENTE
+  // CREAR NUEVO CLIENTE O REUTILIZAR SI YA EXISTE POR WHATSAPP/TELEFONO
   router.post('/', (req, res) => {
     const { nombre, telefono, whatsapp, email, direccion, notas } = req.body;
-    const sql = 'INSERT INTO clientes (nombre, telefono, whatsapp, email, direccion, notas) VALUES (?, ?, ?, ?, ?, ?)';
-    db.query(sql, [nombre, telefono, whatsapp, email, direccion, notas], (err, result) => {
+    const contacto = whatsapp || telefono || '';
+    const contactoNormalizado = String(contacto).replace(/\D/g, '');
+
+    const crearCliente = () => {
+      const sql = 'INSERT INTO clientes (nombre, telefono, whatsapp, email, direccion, notas) VALUES (?, ?, ?, ?, ?, ?)';
+      db.query(sql, [nombre, telefono, whatsapp, email, direccion, notas], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ mensaje: '✅ Cliente creado correctamente', id: result.insertId });
+      });
+    };
+
+    if (!contactoNormalizado) return crearCliente();
+
+    const buscarSql = `
+      SELECT id FROM clientes
+      WHERE regexp_replace(COALESCE(whatsapp, ''), '\D', '', 'g') = ?
+         OR regexp_replace(COALESCE(telefono, ''), '\D', '', 'g') = ?
+      ORDER BY id ASC
+      LIMIT 1
+    `;
+
+    db.query(buscarSql, [contactoNormalizado, contactoNormalizado], (err, encontrados) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ mensaje: '✅ Cliente creado correctamente', id: result.insertId });
+      if (!encontrados || encontrados.length === 0) return crearCliente();
+
+      const existenteId = encontrados[0].id;
+      const updateSql = `
+        UPDATE clientes
+        SET nombre = COALESCE(NULLIF(?, ''), nombre),
+            telefono = COALESCE(NULLIF(?, ''), telefono),
+            whatsapp = COALESCE(NULLIF(?, ''), whatsapp),
+            email = COALESCE(NULLIF(?, ''), email),
+            direccion = COALESCE(NULLIF(?, ''), direccion),
+            notas = COALESCE(NULLIF(?, ''), notas)
+        WHERE id = ?
+      `;
+      db.query(updateSql, [nombre, telefono, whatsapp, email, direccion, notas, existenteId], (updateErr) => {
+        if (updateErr) return res.status(500).json({ error: updateErr.message });
+        res.json({ mensaje: '✅ Cliente existente reutilizado correctamente', id: existenteId, existente: true });
+      });
     });
   });
 
