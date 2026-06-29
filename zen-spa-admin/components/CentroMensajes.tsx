@@ -44,8 +44,10 @@ export default function CentroMensajes() {
   const [conectado, setConectado]           = useState(false)
   const [enviando, setEnviando]             = useState(false)
   const [error, setError]                   = useState("")
+  const [limpiandoViejos, setLimpiandoViejos] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const scrollRef  = useRef<HTMLDivElement>(null)
+  const activoRef = useRef<Conversacion | null>(null)
 
   // Cargar lista de conversaciones
   async function cargarConversaciones() {
@@ -56,17 +58,26 @@ export default function CentroMensajes() {
     setLoading(false)
   }
 
-  // Cargar mensajes de una conversación
-  async function abrirConversacion(c: Conversacion) {
-    setActivo(c)
+  async function cargarMensajesCliente(clienteId: number) {
     try {
-      const res = await fetch(`${API_BASE}/api/chat/${c.cliente_id}`)
+      const res = await fetch(`${API_BASE}/api/chat/${clienteId}`)
       if (res.ok) {
         const data = await res.json()
         setMensajes(Array.isArray(data) ? data : [])
       }
     } catch {}
   }
+
+  // Cargar mensajes de una conversación
+  async function abrirConversacion(c: Conversacion) {
+    setActivo(c)
+    activoRef.current = c
+    await cargarMensajesCliente(c.cliente_id)
+  }
+
+  useEffect(() => {
+    activoRef.current = activo
+  }, [activo])
 
   // Conectar socket una sola vez
   useEffect(() => {
@@ -109,7 +120,22 @@ export default function CentroMensajes() {
       cargarConversaciones()
     })
 
-    return () => { socket.disconnect() }
+    socket.on("mensajes:antiguos_eliminados", () => {
+      cargarConversaciones()
+      const current = activoRef.current
+      if (current) cargarMensajesCliente(current.cliente_id)
+    })
+
+    const refresco = window.setInterval(() => {
+      cargarConversaciones()
+      const current = activoRef.current
+      if (current) cargarMensajesCliente(current.cliente_id)
+    }, 5000)
+
+    return () => {
+      window.clearInterval(refresco)
+      socket.disconnect()
+    }
   }, [])
 
   // Scroll al final cuando hay nuevos mensajes
@@ -166,6 +192,24 @@ export default function CentroMensajes() {
     }
   }
 
+  async function borrarMensajesViejos() {
+    const ok = window.confirm("¿Eliminar mensajes con más de 30 días? Las conversaciones recientes quedan igual.")
+    if (!ok) return
+    setLimpiandoViejos(true)
+    setError("")
+    try {
+      const res = await fetch(API_BASE + "/api/chat/antiguos?dias=30", { method: "DELETE" })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error || "No se pudieron borrar los mensajes viejos")
+      await cargarConversaciones()
+      if (activoRef.current) await cargarMensajesCliente(activoRef.current.cliente_id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudieron borrar los mensajes viejos")
+    } finally {
+      setLimpiandoViejos(false)
+    }
+  }
+
   async function limpiarConversacion() {
     if (!activo || mensajes.length === 0) return
     const ok = window.confirm("¿Eliminar todos los mensajes de esta conversación?")
@@ -203,6 +247,12 @@ export default function CentroMensajes() {
           </span>
         }
       />
+
+      <div style={{ display: "flex", justifyContent: "flex-end", margin: "0 0 14px" }}>
+        <button onClick={borrarMensajesViejos} className="outline-button" disabled={limpiandoViejos}>
+          {limpiandoViejos ? "Borrando..." : "Borrar mensajes viejos"}
+        </button>
+      </div>
 
       <section className="metrics-grid five">
         <MetricCard label="Conversaciones" value={String(conversaciones.length)} detail="Clientes con chat" tone="purple" />
