@@ -45,6 +45,7 @@ export default function CentroMensajes() {
   const [enviando, setEnviando]             = useState(false)
   const [error, setError]                   = useState("")
   const [limpiandoViejos, setLimpiandoViejos] = useState(false)
+  const [seleccionados, setSeleccionados] = useState<number[]>([])
   const socketRef = useRef<Socket | null>(null)
   const scrollRef  = useRef<HTMLDivElement>(null)
   const activoRef = useRef<Conversacion | null>(null)
@@ -53,7 +54,17 @@ export default function CentroMensajes() {
   async function cargarConversaciones() {
     try {
       const res = await fetch(`${API_BASE}/api/chat/conversaciones`)
-      if (res.ok) setConversaciones(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        const ordenadas = Array.isArray(data) ? [...data].sort((a, b) => {
+          const aTime = a.ultimo_en ? new Date(a.ultimo_en).getTime() : 0
+          const bTime = b.ultimo_en ? new Date(b.ultimo_en).getTime() : 0
+          if (bTime !== aTime) return bTime - aTime
+          if (Boolean(b.ultimo_en) !== Boolean(a.ultimo_en)) return b.ultimo_en ? 1 : -1
+          return String(a.cliente_nombre || "").localeCompare(String(b.cliente_nombre || ""))
+        }) : []
+        setConversaciones(ordenadas)
+      }
     } catch {}
     setLoading(false)
   }
@@ -72,6 +83,7 @@ export default function CentroMensajes() {
   async function abrirConversacion(c: Conversacion) {
     setActivo(c)
     activoRef.current = c
+    setSeleccionados([])
     await cargarMensajesCliente(c.cliente_id)
   }
 
@@ -106,6 +118,7 @@ export default function CentroMensajes() {
       setActivo((current) => {
         if (current && current.cliente_id === payload.cliente_id) {
           setMensajes((prev) => prev.filter((m) => m.id !== payload.id))
+          setSeleccionados((prev) => prev.filter((id) => id !== payload.id))
         }
         return current
       })
@@ -193,12 +206,12 @@ export default function CentroMensajes() {
   }
 
   async function borrarMensajesViejos() {
-    const ok = window.confirm("¿Eliminar mensajes con más de 30 días? Las conversaciones recientes quedan igual.")
+    const ok = window.confirm("¿Eliminar mensajes con más de 7 días? Las conversaciones recientes quedan igual.")
     if (!ok) return
     setLimpiandoViejos(true)
     setError("")
     try {
-      const res = await fetch(API_BASE + "/api/chat/antiguos?dias=30", { method: "DELETE" })
+      const res = await fetch(API_BASE + "/api/chat/antiguos?dias=7", { method: "DELETE" })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error || "No se pudieron borrar los mensajes viejos")
       await cargarConversaciones()
@@ -207,6 +220,32 @@ export default function CentroMensajes() {
       setError(err instanceof Error ? err.message : "No se pudieron borrar los mensajes viejos")
     } finally {
       setLimpiandoViejos(false)
+    }
+  }
+
+  function toggleMensajeSeleccionado(id: number) {
+    setSeleccionados((actuales) => actuales.includes(id) ? actuales.filter((item) => item !== id) : [...actuales, id])
+  }
+
+  async function borrarSeleccionados() {
+    if (!activo || seleccionados.length === 0) return
+    const ok = window.confirm(`¿Eliminar ${seleccionados.length} mensaje(s) seleccionado(s)?`)
+    if (!ok) return
+    const ids = [...seleccionados]
+    const anteriores = mensajes
+    setError("")
+    setMensajes((actuales) => actuales.filter((m) => !ids.includes(m.id)))
+    setSeleccionados([])
+    try {
+      for (const id of ids) {
+        const res = await fetch(API_BASE + "/api/chat/mensaje/" + id, { method: "DELETE" })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(data?.error || "No se pudieron borrar los mensajes seleccionados")
+      }
+      await cargarConversaciones()
+    } catch (err) {
+      setMensajes(anteriores)
+      setError(err instanceof Error ? err.message : "No se pudieron borrar los mensajes seleccionados")
     }
   }
 
@@ -250,7 +289,7 @@ export default function CentroMensajes() {
 
       <div style={{ display: "flex", justifyContent: "flex-end", margin: "0 0 14px" }}>
         <button onClick={borrarMensajesViejos} className="outline-button" disabled={limpiandoViejos}>
-          {limpiandoViejos ? "Borrando..." : "Borrar mensajes viejos"}
+          {limpiandoViejos ? "Borrando..." : "Borrar +7 días"}
         </button>
       </div>
 
@@ -314,14 +353,24 @@ export default function CentroMensajes() {
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={limpiarConversacion}
-                    className="outline-button"
-                    disabled={mensajes.length === 0}
-                    style={{ fontSize: "11px", padding: "6px 10px" }}
-                  >
-                    Limpiar chat
-                  </button>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <button
+                      onClick={borrarSeleccionados}
+                      className="outline-button"
+                      disabled={seleccionados.length === 0}
+                      style={{ fontSize: "11px", padding: "6px 10px" }}
+                    >
+                      Borrar seleccionados{seleccionados.length ? ` (${seleccionados.length})` : ""}
+                    </button>
+                    <button
+                      onClick={limpiarConversacion}
+                      className="outline-button"
+                      disabled={mensajes.length === 0}
+                      style={{ fontSize: "11px", padding: "6px 10px" }}
+                    >
+                      Limpiar chat
+                    </button>
+                  </div>
                 </div>
 
                 <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -336,6 +385,14 @@ export default function CentroMensajes() {
                         border: `1px solid ${m.autor_tipo === "admin" ? "rgba(126,34,206,0.5)" : "rgba(255,255,255,0.1)"}`,
                         borderRadius: "10px", padding: "8px 12px",
                       }}>
+                        <label style={{ display: "inline-flex", alignItems: "center", gap: "4px", marginRight: "6px", fontSize: "11px", color: "var(--muted)", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={seleccionados.includes(m.id)}
+                            onChange={() => toggleMensajeSeleccionado(m.id)}
+                          />
+                          Seleccionar
+                        </label>
                         <button
                           onClick={() => eliminarMensaje(m.id)}
                           title="Eliminar mensaje"
