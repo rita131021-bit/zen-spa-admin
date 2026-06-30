@@ -411,7 +411,7 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
                   </td>
                   <td style={{ fontSize: "13px" }}>{turno.cliente_nombre || "-"}</td>
                   <td style={{ fontSize: "13px" }}>{turno.mascota_nombre || "-"}</td>
-                  <td style={{ fontSize: "12px" }}>{turno.servicio_nombre || "-"}</td>
+                  <td style={{ fontSize: "12px" }}>{servicioVisible(turno)}</td>
                   <td>
                     <select
                       value={turno.estado}
@@ -454,7 +454,7 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
           <div style={{ background: "var(--card)", borderRadius: "12px", padding: "28px", width: "380px", display: "grid", gap: "14px" }}>
             <h3 style={{ margin: 0 }}>📅 Postergar turno</h3>
             <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>
-              {postergando.mascota_nombre} — {postergando.servicio_nombre}
+              {postergando.mascota_nombre} — {servicioVisible(postergando)}
             </p>
             <label style={{ display: "grid", gap: "6px", fontSize: "13px" }}>
               Nueva fecha
