@@ -10,6 +10,7 @@ type Resena = {
   cliente_id?: number | null
   cliente_nombre?: string | null
   nombre_cliente: string
+  mascota_nombre?: string | null
   email?: string | null
   calificacion: number
   comentario: string
@@ -177,7 +178,7 @@ export default function ResenasManager() {
                   }>{r.estado}</span>
                 </div>
                 <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)" }}>
-                  {r.email ? `${r.email} · ` : ""}{formatFecha(r.creado_en)}
+                  {r.mascota_nombre ? `Mascota: ${r.mascota_nombre} · ` : ""}{r.email ? `${r.email} · ` : ""}{formatFecha(r.creado_en)}
                   {r.cliente_nombre ? ` · Cliente registrado: ${r.cliente_nombre}` : ""}
                 </p>
               </div>
