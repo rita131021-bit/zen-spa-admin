@@ -52,6 +52,7 @@ export default function CentroMensajes() {
   const [seleccionados, setSeleccionados] = useState<number[]>([])
   const [toastChat, setToastChat] = useState<ToastChat | null>(null)
   const [sonidoActivo, setSonidoActivo] = useState(true)
+  const [permisoNotificaciones, setPermisoNotificaciones] = useState<NotificationPermission | "unsupported">("default")
   const [noLeidos, setNoLeidos] = useState<Record<number, number>>({})
   const [leidos, setLeidos] = useState<Record<number, string>>({})
   const socketRef = useRef<Socket | null>(null)
@@ -78,16 +79,26 @@ export default function CentroMensajes() {
     const nombre = payload.autor_nombre || "Cliente"
     const mensaje = payload.mensaje || "Nuevo mensaje"
     setToastChat({ cliente_id: payload.cliente_id, nombre, mensaje, hora: formatHora(payload.creado_en) })
-    window.setTimeout(() => setToastChat((actual) => actual?.cliente_id === payload.cliente_id ? null : actual), 7000)
+    window.setTimeout(() => setToastChat((actual) => actual?.cliente_id === payload.cliente_id ? null : actual), 9000)
     reproducirSonido()
     if ("Notification" in window) {
+      setPermisoNotificaciones(Notification.permission)
       if (Notification.permission === "granted") {
         const n = new Notification(nombre, { body: mensaje })
         n.onclick = () => { window.focus(); void abrirPorClienteId(payload.cliente_id); n.close() }
-      } else if (Notification.permission === "default") {
-        Notification.requestPermission().catch(() => {})
       }
+    } else {
+      setPermisoNotificaciones("unsupported")
     }
+  }
+
+  async function activarNotificaciones() {
+    if (!("Notification" in window)) {
+      setPermisoNotificaciones("unsupported")
+      return
+    }
+    const permiso = await Notification.requestPermission()
+    setPermisoNotificaciones(permiso)
   }
 
   async function abrirPorClienteId(clienteId: number) {
@@ -168,6 +179,11 @@ export default function CentroMensajes() {
     activoRef.current = activo
   }, [activo])
 
+  useEffect(() => {
+    if ("Notification" in window) setPermisoNotificaciones(Notification.permission)
+    else setPermisoNotificaciones("unsupported")
+  }, [])
+
   // Conectar socket una sola vez
   useEffect(() => {
     cargarConversaciones()
@@ -183,12 +199,13 @@ export default function CentroMensajes() {
 
     socket.on("mensaje:nuevo", (payload: Mensaje) => {
       setActivo((current) => {
-        if (current && current.cliente_id === payload.cliente_id) {
+        const esConversacionActiva = current && current.cliente_id === payload.cliente_id
+        if (esConversacionActiva) {
           setMensajes((prev) => prev.some((m) => m.id === payload.id) ? prev : [...prev, payload])
         } else if (payload.autor_tipo === "cliente") {
           setNoLeidos((actuales) => ({ ...actuales, [payload.cliente_id]: (actuales[payload.cliente_id] || 0) + 1 }))
-          notificarMensaje(payload)
         }
+        if (payload.autor_tipo === "cliente") notificarMensaje(payload)
         return current
       })
       cargarConversaciones()
@@ -351,6 +368,7 @@ export default function CentroMensajes() {
   }
 
   const sinLeer = conversaciones.filter((c) => c.ultimo_mensaje).length
+  const totalNoLeidos = conversaciones.reduce((total, c) => total + conversacionSinLeer(c), 0)
 
   return (
     <>
@@ -389,7 +407,18 @@ export default function CentroMensajes() {
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        {totalNoLeidos > 0 && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#dc2626", color: "white", borderRadius: 999, padding: "6px 10px", fontSize: 12, fontWeight: 800 }}>
+            {totalNoLeidos > 9 ? "9+" : totalNoLeidos} mensaje{totalNoLeidos === 1 ? "" : "s"} nuevo{totalNoLeidos === 1 ? "" : "s"}
+          </span>
+        )}
+        {permisoNotificaciones === "default" && (
+          <button className="outline-button" style={{ fontSize: 11 }} onClick={activarNotificaciones}>Activar notificaciones</button>
+        )}
+        {permisoNotificaciones === "granted" && (
+          <span style={{ color: "#86efac", fontSize: 12, alignSelf: "center" }}>Notificaciones activas</span>
+        )}
         <button className="outline-button" style={{ fontSize: 11 }} onClick={() => setSonidoActivo((v) => !v)}>{sonidoActivo ? "Sonido activo" : "Sonido apagado"}</button>
       </div>
 
@@ -428,7 +457,7 @@ export default function CentroMensajes() {
                     <strong style={{ fontSize: "13px", color: "#e9d5ff" }}>{c.cliente_nombre}</strong>
                     <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       {conversacionSinLeer(c) ? (
-                        <span title="Mensajes nuevos" style={{ minWidth: "18px", height: "18px", padding: "0 6px", borderRadius: "999px", background: "#a855f7", color: "white", fontSize: "11px", lineHeight: "18px", textAlign: "center" }}>
+                        <span title="Mensajes nuevos" style={{ minWidth: "18px", height: "18px", padding: "0 6px", borderRadius: "999px", background: "#dc2626", color: "white", fontSize: "11px", lineHeight: "18px", textAlign: "center" }}>
                           {conversacionSinLeer(c) > 9 ? "9+" : conversacionSinLeer(c)}
                         </span>
                       ) : null}
