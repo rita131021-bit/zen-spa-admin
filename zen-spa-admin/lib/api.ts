@@ -40,6 +40,9 @@ export type Turno = {
   mascota_especie?: string
   servicio_nombre?: string
   profesional_nombre?: string
+  local_id?: number
+  local_nombre?: string
+  local_direccion?: string
   canil_nombre?: string
 }
 
