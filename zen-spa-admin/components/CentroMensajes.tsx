@@ -10,6 +10,8 @@ type Conversacion = {
   cliente_nombre: string
   whatsapp?: string | null
   ultimo_mensaje?: string | null
+  ultimo_autor_tipo?: "cliente" | "admin" | null
+  ultimo_autor_nombre?: string | null
   ultimo_en?: string | null
 }
 
@@ -47,9 +49,25 @@ export default function CentroMensajes() {
   const [limpiandoViejos, setLimpiandoViejos] = useState(false)
   const [seleccionados, setSeleccionados] = useState<number[]>([])
   const [noLeidos, setNoLeidos] = useState<Record<number, number>>({})
+  const [leidos, setLeidos] = useState<Record<number, string>>({})
   const socketRef = useRef<Socket | null>(null)
   const scrollRef  = useRef<HTMLDivElement>(null)
   const activoRef = useRef<Conversacion | null>(null)
+
+  function marcarLeida(c: Conversacion) {
+    if (!c.ultimo_en) return
+    setLeidos((actuales) => ({ ...actuales, [c.cliente_id]: c.ultimo_en || "" }))
+    try {
+      window.localStorage?.setItem(`zen-admin-chat-read-${c.cliente_id}`, c.ultimo_en)
+    } catch {}
+  }
+
+  function conversacionSinLeer(c: Conversacion) {
+    if (noLeidos[c.cliente_id]) return noLeidos[c.cliente_id]
+    if (c.ultimo_autor_tipo !== "cliente" || !c.ultimo_en) return 0
+    const leido = leidos[c.cliente_id]
+    return leido === c.ultimo_en ? 0 : 1
+  }
 
   // Cargar lista de conversaciones
   async function cargarConversaciones() {
@@ -65,6 +83,17 @@ export default function CentroMensajes() {
           return String(a.cliente_nombre || "").localeCompare(String(b.cliente_nombre || ""))
         }) : []
         setConversaciones(ordenadas)
+        setLeidos((actuales) => {
+          const siguientes = { ...actuales }
+          for (const c of ordenadas) {
+            if (!c.ultimo_en || siguientes[c.cliente_id]) continue
+            try {
+              const guardado = window.localStorage?.getItem(`zen-admin-chat-read-${c.cliente_id}`)
+              if (guardado) siguientes[c.cliente_id] = guardado
+            } catch {}
+          }
+          return siguientes
+        })
       }
     } catch {}
     setLoading(false)
@@ -85,6 +114,7 @@ export default function CentroMensajes() {
     setActivo(c)
     activoRef.current = c
     setSeleccionados([])
+    marcarLeida(c)
     setNoLeidos((actuales) => {
       const copia = { ...actuales }
       delete copia[c.cliente_id]
@@ -337,9 +367,9 @@ export default function CentroMensajes() {
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", gap: "8px" }}>
                     <strong style={{ fontSize: "13px", color: "#e9d5ff" }}>{c.cliente_nombre}</strong>
                     <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      {noLeidos[c.cliente_id] ? (
+                      {conversacionSinLeer(c) ? (
                         <span title="Mensajes nuevos" style={{ minWidth: "18px", height: "18px", padding: "0 6px", borderRadius: "999px", background: "#a855f7", color: "white", fontSize: "11px", lineHeight: "18px", textAlign: "center" }}>
-                          {noLeidos[c.cliente_id]}
+                          {conversacionSinLeer(c) > 9 ? "9+" : conversacionSinLeer(c)}
                         </span>
                       ) : null}
                       {c.ultimo_en && <span style={{ fontSize: "11px", color: "var(--muted)" }}>{formatFecha(c.ultimo_en)}</span>}
