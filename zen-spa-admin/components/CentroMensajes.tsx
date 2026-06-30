@@ -15,6 +15,8 @@ type Conversacion = {
   ultimo_en?: string | null
 }
 
+type ToastChat = { cliente_id: number; nombre: string; mensaje: string; hora: string }
+
 type Mensaje = {
   id: number
   cliente_id: number
@@ -48,11 +50,50 @@ export default function CentroMensajes() {
   const [error, setError]                   = useState("")
   const [limpiandoViejos, setLimpiandoViejos] = useState(false)
   const [seleccionados, setSeleccionados] = useState<number[]>([])
+  const [toastChat, setToastChat] = useState<ToastChat | null>(null)
+  const [sonidoActivo, setSonidoActivo] = useState(true)
   const [noLeidos, setNoLeidos] = useState<Record<number, number>>({})
   const [leidos, setLeidos] = useState<Record<number, string>>({})
   const socketRef = useRef<Socket | null>(null)
   const scrollRef  = useRef<HTMLDivElement>(null)
   const activoRef = useRef<Conversacion | null>(null)
+
+  function reproducirSonido() {
+    if (!sonidoActivo) return
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.frequency.value = 880
+      gain.gain.value = 0.04
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      window.setTimeout(() => { osc.stop(); ctx.close() }, 140)
+    } catch {}
+  }
+
+  function notificarMensaje(payload: Mensaje) {
+    const nombre = payload.autor_nombre || "Cliente"
+    const mensaje = payload.mensaje || "Nuevo mensaje"
+    setToastChat({ cliente_id: payload.cliente_id, nombre, mensaje, hora: formatHora(payload.creado_en) })
+    window.setTimeout(() => setToastChat((actual) => actual?.cliente_id === payload.cliente_id ? null : actual), 7000)
+    reproducirSonido()
+    if ("Notification" in window) {
+      if (Notification.permission === "granted") {
+        const n = new Notification(nombre, { body: mensaje })
+        n.onclick = () => { window.focus(); void abrirPorClienteId(payload.cliente_id); n.close() }
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {})
+      }
+    }
+  }
+
+  async function abrirPorClienteId(clienteId: number) {
+    const existente = conversaciones.find((c) => c.cliente_id === clienteId)
+    if (existente) await abrirConversacion(existente)
+  }
 
   function marcarLeida(c: Conversacion) {
     if (!c.ultimo_en) return
@@ -146,6 +187,7 @@ export default function CentroMensajes() {
           setMensajes((prev) => prev.some((m) => m.id === payload.id) ? prev : [...prev, payload])
         } else if (payload.autor_tipo === "cliente") {
           setNoLeidos((actuales) => ({ ...actuales, [payload.cliente_id]: (actuales[payload.cliente_id] || 0) + 1 }))
+          notificarMensaje(payload)
         }
         return current
       })
@@ -331,6 +373,24 @@ export default function CentroMensajes() {
         <button onClick={borrarMensajesViejos} className="outline-button" disabled={limpiandoViejos}>
           {limpiandoViejos ? "Borrando..." : "Borrar +7 días"}
         </button>
+      </div>
+
+      {toastChat && (
+        <div style={{ position: "fixed", top: 18, right: 18, zIndex: 9999, width: 300, background: "#0f172a", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: 12, boxShadow: "0 14px 38px rgba(0,0,0,0.35)" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#7c3aed", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{toastChat.nombre.slice(0, 1).toUpperCase()}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ fontSize: 13 }}>{toastChat.nombre}</strong>
+              <p style={{ margin: "3px 0", color: "#cbd5e1", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{toastChat.mensaje}</p>
+              <span style={{ color: "#94a3b8", fontSize: 11 }}>{toastChat.hora}</span>
+            </div>
+            <button onClick={() => { void abrirPorClienteId(toastChat.cliente_id); setToastChat(null) }} style={{ background: "#7c3aed", color: "white", border: "none", borderRadius: 6, padding: "6px 8px", fontSize: 11, cursor: "pointer" }}>Abrir</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+        <button className="outline-button" style={{ fontSize: 11 }} onClick={() => setSonidoActivo((v) => !v)}>{sonidoActivo ? "Sonido activo" : "Sonido apagado"}</button>
       </div>
 
       <section className="metrics-grid five">
