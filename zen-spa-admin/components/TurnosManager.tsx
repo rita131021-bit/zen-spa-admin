@@ -64,7 +64,8 @@ function mensajeWhatsAppTurno(turno: Turno, tipo: "confirmacion" | "reprogramaci
 }
 
 function whatsappTurnoUrl(turno: Turno, tipo: "confirmacion" | "reprogramacion" = "confirmacion") {
-  const telefono = limpiarTelefono(turno.cliente_whatsapp)
+  const turnoConWhatsapp = turno as Turno & { cliente_whatsapp?: string | null }
+  const telefono = limpiarTelefono(turnoConWhatsapp.cliente_whatsapp)
   if (!telefono) return ""
   return `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeWhatsAppTurno(turno, tipo))}`
 }
