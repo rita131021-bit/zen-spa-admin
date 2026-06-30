@@ -46,6 +46,7 @@ export default function CentroMensajes() {
   const [error, setError]                   = useState("")
   const [limpiandoViejos, setLimpiandoViejos] = useState(false)
   const [seleccionados, setSeleccionados] = useState<number[]>([])
+  const [noLeidos, setNoLeidos] = useState<Record<number, number>>({})
   const socketRef = useRef<Socket | null>(null)
   const scrollRef  = useRef<HTMLDivElement>(null)
   const activoRef = useRef<Conversacion | null>(null)
@@ -84,6 +85,11 @@ export default function CentroMensajes() {
     setActivo(c)
     activoRef.current = c
     setSeleccionados([])
+    setNoLeidos((actuales) => {
+      const copia = { ...actuales }
+      delete copia[c.cliente_id]
+      return copia
+    })
     await cargarMensajesCliente(c.cliente_id)
   }
 
@@ -108,6 +114,8 @@ export default function CentroMensajes() {
       setActivo((current) => {
         if (current && current.cliente_id === payload.cliente_id) {
           setMensajes((prev) => prev.some((m) => m.id === payload.id) ? prev : [...prev, payload])
+        } else if (payload.autor_tipo === "cliente") {
+          setNoLeidos((actuales) => ({ ...actuales, [payload.cliente_id]: (actuales[payload.cliente_id] || 0) + 1 }))
         }
         return current
       })
@@ -326,9 +334,16 @@ export default function CentroMensajes() {
                     border: "none", borderBottom: "1px solid rgba(255,255,255,0.04)", cursor: "pointer",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", gap: "8px" }}>
                     <strong style={{ fontSize: "13px", color: "#e9d5ff" }}>{c.cliente_nombre}</strong>
-                    {c.ultimo_en && <span style={{ fontSize: "11px", color: "var(--muted)" }}>{formatFecha(c.ultimo_en)}</span>}
+                    <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      {noLeidos[c.cliente_id] ? (
+                        <span title="Mensajes nuevos" style={{ minWidth: "18px", height: "18px", padding: "0 6px", borderRadius: "999px", background: "#a855f7", color: "white", fontSize: "11px", lineHeight: "18px", textAlign: "center" }}>
+                          {noLeidos[c.cliente_id]}
+                        </span>
+                      ) : null}
+                      {c.ultimo_en && <span style={{ fontSize: "11px", color: "var(--muted)" }}>{formatFecha(c.ultimo_en)}</span>}
+                    </span>
                   </div>
                   <p style={{ margin: 0, fontSize: "12px", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {c.ultimo_mensaje || "Sin mensajes"}
