@@ -39,6 +39,36 @@ function servicioVisible(turno: Turno) {
   return servicioSolicitado(turno.observaciones) || turno.servicio_nombre || "Sin servicio"
 }
 
+function limpiarTelefono(value?: string | null) {
+  return String(value || "").replace(/\D/g, "")
+}
+
+function mensajeWhatsAppTurno(turno: Turno, tipo: "confirmacion" | "reprogramacion" = "confirmacion") {
+  const fecha = String(turno.fecha || "").slice(0, 10)
+  const hora = String(turno.hora || "").slice(0, 5)
+  const servicio = servicioVisible(turno)
+  const encabezado = tipo === "reprogramacion" ? "Reprogramación de turno" : "Confirmación de turno"
+  return [
+    `Hola ${turno.cliente_nombre || ""}. ${encabezado} de Zen Spa para Mascotas:`,
+    `Cliente: ${turno.cliente_nombre || "-"}`,
+    `Mascota: ${turno.mascota_nombre || "-"}`,
+    `Servicio: ${servicio}`,
+    `Fecha: ${fecha || "-"}`,
+    `Hora: ${hora || "-"}`,
+    `Estado: ${turno.estado || "-"}`,
+    `Pago: ${turno.pago || "Pendiente"}`,
+    tipo === "reprogramacion"
+      ? "Te escribimos para revisar/reprogramar este turno. ¿Nos confirmás disponibilidad?"
+      : "Te escribimos para confirmar este turno. ¿Nos confirmás si está todo correcto?",
+  ].join("\n")
+}
+
+function whatsappTurnoUrl(turno: Turno, tipo: "confirmacion" | "reprogramacion" = "confirmacion") {
+  const telefono = limpiarTelefono(turno.cliente_whatsapp)
+  if (!telefono) return ""
+  return `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeWhatsAppTurno(turno, tipo))}`
+}
+
 export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps) {
   const searchParams = useSearchParams()
   const [turnos, setTurnos] = useState<Turno[]>(initialTurnos)
@@ -242,6 +272,14 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
     else { alert("No se pudo cancelar el turno") }
   }
 
+  async function handleEliminarTurno(turno: Turno) {
+    const ok = confirm(`¿Eliminar definitivamente la reserva de ${turno.cliente_nombre || "cliente"} para ${turno.mascota_nombre || "mascota"}?`)
+    if (!ok) return
+    const res = await fetch(`${API_BASE}/api/turnos/${turno.id}`, { method: "DELETE" })
+    if (res.ok) { await loadCatalogs() }
+    else { alert("No se pudo eliminar el turno") }
+  }
+
   async function handlePosterguar() {
     if (!postergando || !nuevaFecha || !nuevaHora) { alert("Fecha y hora son obligatorias"); return }
     const res = await fetch(`${API_BASE}/api/turnos/${postergando.id}/postergar`, {
@@ -433,11 +471,25 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
                           title="Postergar"
                           style={{ padding: "4px 8px", fontSize: "12px", background: "rgba(126,34,206,0.3)", border: "1px solid rgba(126,34,206,0.5)", borderRadius: "4px", cursor: "pointer", color: "#e9d5ff" }}
                         >📅</button>
+                        {whatsappTurnoUrl(turno) && (
+                          <a
+                            href={whatsappTurnoUrl(turno)}
+                            target="_blank"
+                            rel="noreferrer"
+                            title="WhatsApp"
+                            style={{ padding: "4px 8px", fontSize: "12px", background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.45)", borderRadius: "4px", cursor: "pointer", color: "#86efac", textDecoration: "none" }}
+                          >💬</a>
+                        )}
                         <button
                           onClick={() => handleCancelar(turno)}
                           title="Cancelar"
                           style={{ padding: "4px 8px", fontSize: "12px", background: "rgba(239,68,68,0.3)", border: "1px solid rgba(239,68,68,0.5)", borderRadius: "4px", cursor: "pointer", color: "#fca5a5" }}
                         >✕</button>
+                        <button
+                          onClick={() => handleEliminarTurno(turno)}
+                          title="Eliminar reserva"
+                          style={{ padding: "4px 8px", fontSize: "12px", background: "rgba(127,29,29,0.35)", border: "1px solid rgba(248,113,113,0.5)", borderRadius: "4px", cursor: "pointer", color: "#fecaca" }}
+                        >🗑</button>
                       </>
                     )}
                   </td>
