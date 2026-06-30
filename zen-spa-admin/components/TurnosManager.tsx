@@ -30,6 +30,15 @@ function estadoPill(estado: string) {
   return map[estado] || "pill gray"
 }
 
+function servicioSolicitado(observaciones?: string | null) {
+  const match = String(observaciones || "").match(/Servicio solicitado:\s*([^|]+)/i)
+  return match?.[1]?.trim() || ""
+}
+
+function servicioVisible(turno: Turno) {
+  return servicioSolicitado(turno.observaciones) || turno.servicio_nombre || "Sin servicio"
+}
+
 export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps) {
   const searchParams = useSearchParams()
   const [turnos, setTurnos] = useState<Turno[]>(initialTurnos)
@@ -93,7 +102,8 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
       const matchBusqueda = !q ||
         String(t.cliente_nombre || "").toLowerCase().includes(q) ||
         String(t.mascota_nombre || "").toLowerCase().includes(q) ||
-        String(t.servicio_nombre || "").toLowerCase().includes(q)
+        servicioVisible(t).toLowerCase().includes(q) ||
+        String(t.observaciones || "").toLowerCase().includes(q)
       return matchEstado && matchBusqueda
     })
   }, [turnos, filtroEstado, busqueda])
@@ -106,7 +116,15 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
       fetch(`${API_BASE}/api/servicios`, { cache: "no-store" }),
       fetch(`${API_BASE}/api/profesionales`, { cache: "no-store" }),
     ])
-    if (turnosRes.ok) setTurnos(await turnosRes.json())
+    if (turnosRes.ok) {
+      const data = await turnosRes.json()
+      const ordenados = Array.isArray(data) ? [...data].sort((a, b) => {
+        const aTime = new Date(a.creado_en || a.fecha || 0).getTime()
+        const bTime = new Date(b.creado_en || b.fecha || 0).getTime()
+        return bTime - aTime
+      }) : []
+      setTurnos(ordenados)
+    }
     if (clientesRes.ok) setClientes(await clientesRes.json())
     if (mascotasRes.ok) setMascotas(await mascotasRes.json())
     if (serviciosRes.ok) setServicios(await serviciosRes.json())
