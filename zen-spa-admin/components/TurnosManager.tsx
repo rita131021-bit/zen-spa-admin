@@ -70,6 +70,16 @@ function whatsappTurnoUrl(turno: Turno, tipo: "confirmacion" | "reprogramacion" 
   return `https://wa.me/${telefono}?text=${encodeURIComponent(mensajeWhatsAppTurno(turno, tipo))}`
 }
 
+function whatsappEnviado(turno: Turno) {
+  return /WhatsApp enviado:/i.test(String(turno.observaciones || ""))
+}
+
+function agregarMarcaWhatsApp(observaciones?: string | null) {
+  const actual = String(observaciones || "")
+  if (/WhatsApp enviado:/i.test(actual)) return actual
+  return `${actual}${actual ? " | " : ""}WhatsApp enviado: ${new Date().toISOString()}`
+}
+
 export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps) {
   const searchParams = useSearchParams()
   const [turnos, setTurnos] = useState<Turno[]>(initialTurnos)
@@ -281,6 +291,20 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
     else { alert("No se pudo eliminar el turno") }
   }
 
+  async function marcarWhatsAppEnviado(turno: Turno) {
+    if (whatsappEnviado(turno)) return
+    setTurnos((actuales) => actuales.map((item) => item.id === turno.id ? {
+      ...item,
+      observaciones: agregarMarcaWhatsApp(item.observaciones),
+    } : item))
+    try {
+      const res = await fetch(`${API_BASE}/api/turnos/${turno.id}/whatsapp-enviado`, { method: "PATCH" })
+      if (!res.ok) await loadCatalogs()
+    } catch {
+      await loadCatalogs()
+    }
+  }
+
   async function handlePosterguar() {
     if (!postergando || !nuevaFecha || !nuevaHora) { alert("Fecha y hora son obligatorias"); return }
     const res = await fetch(`${API_BASE}/api/turnos/${postergando.id}/postergar`, {
@@ -480,13 +504,19 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
                       </>
                     )}
                     {whatsappTurnoUrl(turno) && (
-                      <a
-                        href={whatsappTurnoUrl(turno)}
-                        target="_blank"
-                        rel="noreferrer"
-                        title="WhatsApp"
-                        style={{ padding: "4px 8px", fontSize: "12px", background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.45)", borderRadius: "4px", cursor: "pointer", color: "#86efac", textDecoration: "none" }}
-                      >💬</a>
+                      <>
+                        <a
+                          href={whatsappTurnoUrl(turno)}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="WhatsApp"
+                          onClick={() => marcarWhatsAppEnviado(turno)}
+                          style={{ padding: "4px 8px", fontSize: "12px", background: "rgba(34,197,94,0.2)", border: "1px solid rgba(34,197,94,0.45)", borderRadius: "4px", cursor: "pointer", color: "#86efac", textDecoration: "none" }}
+                        >💬</a>
+                        {whatsappEnviado(turno) && (
+                          <span title="WhatsApp enviado" style={{ padding: "4px 8px", fontSize: "11px", color: "#86efac" }}>✓ WhatsApp</span>
+                        )}
+                      </>
                     )}
                     <button
                       onClick={() => handleEliminarTurno(turno)}
