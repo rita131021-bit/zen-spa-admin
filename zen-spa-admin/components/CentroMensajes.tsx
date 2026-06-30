@@ -70,8 +70,9 @@ export default function CentroMensajes() {
       gain.gain.value = 0.04
       osc.connect(gain)
       gain.connect(ctx.destination)
+      void ctx.resume?.()
       osc.start()
-      window.setTimeout(() => { osc.stop(); ctx.close() }, 140)
+      window.setTimeout(() => { osc.stop(); ctx.close() }, 180)
     } catch {}
   }
 
@@ -99,6 +100,16 @@ export default function CentroMensajes() {
     }
     const permiso = await Notification.requestPermission()
     setPermisoNotificaciones(permiso)
+    if (permiso === "granted") {
+      const n = new Notification("Zen Spa", { body: "Notificaciones del panel activadas" })
+      window.setTimeout(() => n.close(), 3500)
+    }
+  }
+
+  function probarSonido() {
+    reproducirSonido()
+    setToastChat({ cliente_id: activoRef.current?.cliente_id || 0, nombre: "Zen Spa", mensaje: "Sonido de chat activo", hora: formatHora(new Date().toISOString()) })
+    window.setTimeout(() => setToastChat(null), 2500)
   }
 
   async function abrirPorClienteId(clienteId: number) {
@@ -417,8 +428,15 @@ export default function CentroMensajes() {
           <button className="outline-button" style={{ fontSize: 11 }} onClick={activarNotificaciones}>Activar notificaciones</button>
         )}
         {permisoNotificaciones === "granted" && (
-          <span style={{ color: "#86efac", fontSize: 12, alignSelf: "center" }}>Notificaciones activas</span>
+          <button className="outline-button" style={{ fontSize: 11, color: "#86efac" }} onClick={activarNotificaciones}>Notificaciones activas</button>
         )}
+        {permisoNotificaciones === "denied" && (
+          <span style={{ color: "#fca5a5", fontSize: 12, alignSelf: "center" }}>Notificaciones bloqueadas en el navegador</span>
+        )}
+        {permisoNotificaciones === "unsupported" && (
+          <span style={{ color: "#fca5a5", fontSize: 12, alignSelf: "center" }}>Este navegador no permite notificaciones</span>
+        )}
+        <button className="outline-button" style={{ fontSize: 11 }} onClick={probarSonido}>Probar sonido</button>
         <button className="outline-button" style={{ fontSize: 11 }} onClick={() => setSonidoActivo((v) => !v)}>{sonidoActivo ? "Sonido activo" : "Sonido apagado"}</button>
       </div>
 
