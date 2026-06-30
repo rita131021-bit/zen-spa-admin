@@ -53,6 +53,7 @@ function mensajeWhatsAppTurno(turno: Turno, tipo: "confirmacion" | "reprogramaci
     `Cliente: ${turno.cliente_nombre || "-"}`,
     `Mascota: ${turno.mascota_nombre || "-"}`,
     `Servicio: ${servicio}`,
+    `Local: ${turno.local_nombre || "-"}`,
     `Fecha: ${fecha || "-"}`,
     `Hora: ${hora || "-"}`,
     `Estado: ${turno.estado || "-"}`,
@@ -461,6 +462,7 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
                 <th>Cliente</th>
                 <th>Mascota</th>
                 <th>Servicio</th>
+                <th>Local</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -475,6 +477,7 @@ export default function TurnosManager({ initialTurnos = [] }: TurnosManagerProps
                   <td style={{ fontSize: "13px" }}>{turno.cliente_nombre || "-"}</td>
                   <td style={{ fontSize: "13px" }}>{turno.mascota_nombre || "-"}</td>
                   <td style={{ fontSize: "12px" }}>{servicioVisible(turno)}</td>
+                  <td style={{ fontSize: "12px" }}>{turno.local_nombre || "-"}</td>
                   <td>
                     <select
                       value={turno.estado}
