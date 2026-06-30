@@ -191,6 +191,8 @@ export default function CentroMensajes() {
 
   async function eliminarMensaje(id: number) {
     if (!activo) return
+    const ok = window.confirm("¿Eliminar este mensaje?")
+    if (!ok) return
     setError("")
     const anteriores = mensajes
     setMensajes((prev) => prev.filter((m) => m.id !== id))
