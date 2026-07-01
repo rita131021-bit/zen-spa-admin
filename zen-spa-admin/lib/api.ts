@@ -85,6 +85,25 @@ export type Profesional = {
   telefono?: string | null
   email?: string | null
   activo?: number | boolean
+  local_id?: number | null
+  local_nombre?: string | null
+  local_tipo?: string | null
+  horarios?: Array<{
+    id?: number
+    profesional_id?: number
+    dia: string
+    hora_entrada?: string
+    hora_salida?: string
+    disponible?: number | boolean
+  }>
+  bloqueos_especificos?: Array<{
+    id?: number
+    profesional_id?: number
+    fecha: string
+    hora_inicio?: string | null
+    hora_fin?: string | null
+    motivo?: string | null
+  }>
 }
 
 export type Bloqueo = {
