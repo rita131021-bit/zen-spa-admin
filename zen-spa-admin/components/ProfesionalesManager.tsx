@@ -49,8 +49,7 @@ function blocksToText(profesional: Profesional) {
       const rango = inicio || fin ? " " + inicio + "-" + fin : ""
       return (fecha + rango + " " + (block.motivo || "")).trim()
     })
-    .join("
-")
+    .join("\n")
 }
 
 function formFromProfesional(profesional: Profesional, locales: LocalDisponibilidad[]): ProfesionalForm {
@@ -70,8 +69,7 @@ function formFromProfesional(profesional: Profesional, locales: LocalDisponibili
 }
 
 function parseBlocks(text: string) {
-  return text.split("
-").map((line) => line.trim()).filter(Boolean).map((line) => {
+  return text.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
     const match = line.match(/^(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2})-(\d{2}:\d{2}))?(?:\s+(.*))?$/)
     if (!match) return null
     return { fecha: match[1], hora_inicio: match[2] || null, hora_fin: match[3] || null, motivo: match[4] || null }
