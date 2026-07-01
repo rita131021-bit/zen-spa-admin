@@ -13,12 +13,17 @@ export default function ServicePriceManager({ initialServices = fallbackServices
   const [services, setServices] = useState<Servicio[]>(initialServices)
   const [savingId, setSavingId] = useState<number | null>(null)
   const [message, setMessage] = useState("")
+  const [pricePassword, setPricePassword] = useState("")
 
   function updateLocal(id: number, field: keyof Servicio, value: string | boolean) {
     setServices((current) => current.map((service) => service.id === id ? { ...service, [field]: value } : service))
   }
 
   async function save(service: Servicio) {
+    if (!pricePassword.trim()) {
+      setMessage("Ingresá la contraseña para modificar precios")
+      return
+    }
     setSavingId(service.id)
     setMessage("")
     try {
@@ -32,33 +37,40 @@ export default function ServicePriceManager({ initialServices = fallbackServices
           duracion_minutos: Number(service.duracion_minutos || 0),
           descripcion: service.descripcion,
           activo: Boolean(service.activo),
+          password_precio: pricePassword.trim(),
         }),
       })
-      if (!response.ok) throw new Error("No se pudo actualizar")
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || "No se pudo actualizar")
       setMessage("Precio actualizado correctamente")
-    } catch {
-      setMessage("No se pudo guardar el cambio")
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "No se pudo guardar el cambio")
     } finally {
       setSavingId(null)
     }
   }
 
   async function applyIncrease(percent: number) {
+    if (!pricePassword.trim()) {
+      setMessage("Ingresá la contraseña para modificar precios")
+      return
+    }
     setMessage("")
     try {
       const response = await fetch(`${API_BASE}/api/servicios/precio/aumento`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ porcentaje: percent }),
+        body: JSON.stringify({ porcentaje: percent, password_precio: pricePassword.trim() }),
       })
-      if (!response.ok) throw new Error("No se pudo aplicar")
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || "No se pudo aplicar")
       setServices((current) => current.map((service) => ({
         ...service,
         precio: Math.round(Number(service.precio || 0) * (1 + percent / 100)),
       })))
       setMessage(`Aumento de ${percent}% aplicado`)
-    } catch {
-      setMessage("No se pudo aplicar el aumento")
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "No se pudo aplicar el aumento")
     }
   }
 
@@ -68,6 +80,15 @@ export default function ServicePriceManager({ initialServices = fallbackServices
         <article className="panel-card">
           <h3>Aplicar aumento general</h3>
           <p>Actualiza todos los precios de los servicios activos.</p>
+          <label style={{ display: "grid", gap: 6, margin: "10px 0" }}>
+            Contraseña para modificar precios
+            <input
+              type="password"
+              value={pricePassword}
+              onChange={(event) => setPricePassword(event.target.value)}
+              placeholder="Ingresá la contraseña"
+            />
+          </label>
           <div className="button-row">
             {[5, 10, 15, 20, 25].map((percent) => (
               <button className={percent === 10 ? "outline-button yellow" : "outline-button"} key={percent} onClick={() => applyIncrease(percent)}>
